@@ -21,7 +21,7 @@ executable conduit-chunking
   ghc-prof-options:    -prof -fprof-auto -caf-all
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.6 && <4.7,
+  build-depends:       base >=4.6,
                        conduit,
                        conduit-combinators,
                        conduit-extra,
