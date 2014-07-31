@@ -7,7 +7,8 @@
              , OverloadedStrings
              , GADTs
              , StandaloneDeriving
-             , GeneralizedNewtypeDeriving #-}
+             , GeneralizedNewtypeDeriving
+             , FlexibleContexts #-}
 
 module Main where
 
@@ -21,6 +22,7 @@ import           Data.Conduit as C
 --import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Trans.Resource
+import           Control.Monad.Base
 import           Control.Monad.IO.Class
 import           Control.Monad.State
 --import           Control.Monad.Cont
@@ -28,7 +30,7 @@ import           Control.Monad.State
 --import           Control.Monad.Primitive
 --import           Control.Monad.Base
 import qualified Data.Conduit.List as CL
---import qualified Data.Conduit.Combinators as CC
+import qualified Data.Conduit.Combinators as CC
 import qualified Data.Conduit.Binary as CB
 import           Data.Conduit.Blaze
 --import qualified Data.Vector as V 
@@ -275,6 +277,25 @@ processAndChunkOutputStateChunkBuilder =
                 Nothing -> return ()
          in loop
 
+{-
+forceFlush :: Monad m => ConduitM i o m ()
+forceFlush = await >>= maybe (return ()) leftover
+-}
+
+processAndChunkOutputVectorBuilder :: (MonadBase IO m, MonadIO m)
+                                   => Conduit ByteString m (VS.Vector Word8)
+processAndChunkOutputVectorBuilder =
+    CC.vectorBuilder chunkSize $ \yieldByte -> do
+        awaitForever $ \bs ->
+            liftIO . forM_ [0..B.length bs - 1] $ \i ->
+                yieldByte $ unsafeIndex bs i
+
+vectorToByteString :: MonadIO m => Conduit (VS.Vector Word8) m ByteString
+vectorToByteString =
+    awaitForever $ \v ->
+       let (fptr, offs, len) = VS.unsafeToForeignPtr v
+        in yield $ PS fptr offs len
+
 main :: IO ()
 main =
     defaultMainWith
@@ -305,6 +326,11 @@ main =
             , bench "Chunking with state" .
                   nfIO . runResourceT  $ CB.sourceFile oneMBFileName
                                       =$ processAndChunkOutputStateChunkBuilder
+                                      $$ CB.sinkFile outputFileName
+            , bench "Chunking with vectorBuilder" .
+                  nfIO . runResourceT  $ CB.sourceFile oneMBFileName
+                                      =$ processAndChunkOutputVectorBuilder
+                                      =$ vectorToByteString
                                       $$ CB.sinkFile outputFileName
 
             ]

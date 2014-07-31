@@ -23,7 +23,7 @@ executable conduit-chunking
   -- other-extensions:    
   build-depends:       base >=4.6,
                        conduit,
-                       conduit-combinators,
+                       conduit-combinators >= 0.2.8.2,
                        conduit-extra,
                        resourcet,
                        transformers,
